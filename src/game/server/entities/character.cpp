@@ -53,6 +53,7 @@ CCharacter::CCharacter(CGameWorld *pWorld)
 	m_ProximityRadius = ms_PhysSize;
 	m_Health = 0;
 	m_Armor = 0;
+	m_FreezeTimer = 0;
 }
 
 void CCharacter::Reset()
@@ -1782,6 +1783,8 @@ void CCharacter::HandleTiles(int Index)
 
 void CCharacter::DDRaceTick()
 {
+	if(!(((m_TileIndex == TILE_FREEZE) || (m_TileFIndex == TILE_FREEZE)) && !m_Super && !m_DeepFreeze))
+		m_FreezeTimer = 0;
 	if(m_Input.m_Direction != 0 || m_Input.m_Jump != 0)
 		m_LastMove = Server()->Tick();
 
@@ -1853,11 +1856,18 @@ bool CCharacter::Freeze(int Seconds)
 {
 	if ((Seconds <= 0 || m_Super || m_FreezeTime == -1 || m_FreezeTime > Seconds * Server()->TickSpeed()) && Seconds != -1)
 		 return false;
+	m_FreezeTimer++;
 	if (m_Armor)
 	{
-		if (Server()->Tick() % Server()->TickSpeed() == 0)
+		if (m_FreezeTimer % Server()->TickSpeed() == 0 || m_FreezeTimer == 1)
 			m_Armor = clamp(m_Armor-1, 0, 10);
+		for(int i=0;i<NUM_WEAPONS;i++)
+			if(m_aWeapons[i].m_Got)
+				 m_aWeapons[i].m_Ammo = -1;
+		if(!m_aWeapons[m_ActiveWeapon].m_Got)
+			m_ActiveWeapon = WEAPON_GUN;
 		m_FreezeTime = 0;
+		m_FreezeTick = 0;
 		return false;
 	}
 	if (m_FreezeTick < Server()->Tick() - Server()->TickSpeed() || Seconds == -1)
